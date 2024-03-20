@@ -1,11 +1,14 @@
 use std::{fs::File, io::Write};
+use crate::rand;
 use crate::ray::Ray;
 use crate::hittable::{Hittable, HittableList};
-use crate::vec3::{Vec3, vec3, clamp, normalize};
+use crate::vec3::{clamp, normalize, sqrt, vec3, Vec3};
 
 pub struct Camera {
     pub aspect_ratio: f32,
     pub image_width: i32,
+    pub samples_per_pixel: u16,
+    pub max_depth: u8,
     image_height: i32,
     center: Vec3,
     pixel_delta_uv: Vec3,
@@ -13,7 +16,7 @@ pub struct Camera {
 }
 
 impl Camera {
-    pub fn new(aspect_ratio: f32, image_width: i32) -> Camera {
+    pub fn new(aspect_ratio: f32, image_width: i32, samples_per_pixel: u16, max_depth: u8) -> Camera {
         let image_height = (image_width as f32 / aspect_ratio) as i32;
 
         let focal_len = 1.0;
@@ -37,6 +40,8 @@ impl Camera {
             center,
             pixel_delta_uv,
             pixel_00_loc,
+            samples_per_pixel,
+            max_depth
         }
     }
 
@@ -44,31 +49,56 @@ impl Camera {
         let mut buf = Vec::new();
         writeln!(buf, "P3\n{} {}\n255\n", self.image_width, self.image_height).unwrap();
         for j in 0..self.image_height {
-            print!("Rendering: {j}\r");
+            print!("Rendering: {}%\r", ((j + 1) * 100) / self.image_height);
             for i in 0..self.image_width {
-                let pixel_center = self.pixel_00_loc + vec3(i as f32, j as f32, 0.0) * self.pixel_delta_uv;
-                let ray_dir = pixel_center - self.center;
+                let mut color = vec3(0.0, 0.0, 0.0);
+                for _sample in 0..self.samples_per_pixel {
+                    let r = self.get_ray(i, j);
+                    color += Self::ray_color(r, self.max_depth, world);
+                }
+                color = color / self.samples_per_pixel as f32;
+                color = Self::linear_to_gamma(color);
 
-                let r = Ray::new(self.center, ray_dir);
-                let color = clamp(255.9 * Self::ray_color(r, world), 0.0, 255.9);
+                color = clamp(255.9 * color, 0.0, 255.9);
 
                 writeln!(buf, "{} {} {}\n", color.x as u8, color.y as u8, color.z as u8).unwrap();
             }
         }
-        println!("Rendering: COMPLETE!");
 
         let mut render = File::create("out.ppm").expect("Failed to create file!");
         render.write_all(&buf).unwrap();
     }
 
-    fn ray_color(ray: Ray, world: &HittableList) -> Vec3 {
-        if let Some(d) = world.hit(&ray, 0.0, f32::MAX) {
-            return 0.5 + d.normal * 0.5;
+    fn distort_sample_uv(i: i32, j: i32) -> Vec3 {
+        let x = rand::randf32((i + j) as u32);
+        vec3(-0.5 + x, -0.5 + (231.23423 * x).fract(), 0.0)
+    }
+
+    fn get_ray(&self, i: i32, j: i32) -> Ray {
+        let pixel_offset = vec3(i as f32, j as f32, 0.0) + Self::distort_sample_uv(i, j);
+        let pixel_sample = self.pixel_00_loc + pixel_offset * self.pixel_delta_uv;
+        let ray_dir = pixel_sample - self.center;
+        Ray::new(self.center, ray_dir)
+    }
+
+    fn ray_color(ray: Ray, depth: u8, world: &HittableList) -> Vec3 {
+        if depth < 1 {
+            return vec3(0.0, 0.0, 0.0);
+        }
+        
+        if let Some(d) = world.hit(&ray, 0.001, f32::MAX) {
+            if let Some((scatter_ray, attenuation)) = d.mat.scatter(&ray, &d) {
+                return attenuation * Self::ray_color(scatter_ray, depth - 1, world);
+            }
         }
 
         let unit_dir = normalize(ray.dir);
 
         let grad = 0.5 + 0.5 * unit_dir.y;
         grad * vec3(0.5, 0.7, 1.0) + (1.0 - grad) * vec3(0.9, 1.0, 1.0)
+    }
+
+    fn linear_to_gamma(color: Vec3) -> Vec3 {
+        sqrt(color)
     }
 }

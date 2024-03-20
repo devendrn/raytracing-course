@@ -1,17 +1,18 @@
+use crate::material::Material;
 use crate::ray::Ray;
-use crate::sphere::Sphere;
 use crate::vec3::{Vec3, dot};
 
-pub struct HitRecord {
+pub struct HitRecord<'a> {
     pub p: Vec3,
     pub normal: Vec3,
     pub t: f32,
     pub front_face: bool,
+    pub mat: &'a dyn Material,
 }
 
-impl HitRecord {
-    pub fn new(p: Vec3, outward_normal: Vec3, t: f32) -> Self {
-        HitRecord { p, t, normal: outward_normal, front_face: false }
+impl<'a> HitRecord<'a> {
+    pub fn new(p: Vec3, outward_normal: Vec3, t: f32, mat: &'a dyn Material) -> HitRecord<'a> {
+        HitRecord { p, t, normal: outward_normal, front_face: false, mat }
     }
 
     pub fn set_face_normal(&mut self, ray: &Ray) {
@@ -26,28 +27,25 @@ pub trait Hittable {
     fn hit(&self, ray: &Ray, ray_tmin: f32, ray_tmax: f32) -> Option<HitRecord>;
 }
 
-pub struct HittableList {
-    pub objects: Vec<Hittables>,
+pub struct HittableList<'a> {
+    pub objects: Vec<&'a dyn Hittable>,
 }
 
-impl HittableList {
-    pub fn new() -> HittableList {
+impl<'a> HittableList<'a> {
+    pub fn new() -> HittableList<'a> {
         HittableList { objects: Vec::new() }
     }
 
-    pub fn add(&mut self, object: Hittables) {
+    pub fn add(&mut self, object: &'a dyn Hittable) {
         self.objects.push(object)
     }
 }
 
-impl Hittable for HittableList {
+impl<'a> Hittable for HittableList<'a> {
     fn hit(&self, ray: &Ray, ray_tmin: f32, ray_tmax: f32) -> Option<HitRecord> {
         let mut closest_hit: Option<HitRecord> = None;
         for item in self.objects.iter() {
-            let hit = match item {
-                Hittables::Sphere(s) => s.hit(ray, ray_tmin, ray_tmax),
-            };
-
+            let hit = item.hit(ray, ray_tmin, ray_tmax);
             let Some(s) = hit else { continue };
             if let Some(ref c) = closest_hit {
                 if s.t < c.t {
@@ -60,8 +58,4 @@ impl Hittable for HittableList {
 
         closest_hit
     }
-}
-
-pub enum Hittables {
-    Sphere(Sphere),
 }

@@ -1,10 +1,17 @@
-use std::ops::{Add, Div, Mul, Neg, Sub};
+use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
+use crate::rand;
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub struct Vec3 {
    pub x: f32,
    pub y: f32,
    pub z: f32,
+}
+
+impl Vec3 {
+    fn apply(&self, f: fn(f32) -> f32) -> Vec3 {
+        vec3(f(self.x), f(self.y), f(self.z))
+    }
 }
 
 /* Vec3 operators */
@@ -22,6 +29,12 @@ impl Add<Vec3> for f32 {
 
     fn add(self, rhs: Vec3) -> Self::Output {
         vec3(rhs.x + self, rhs.y + self, rhs.z + self)
+    }
+}
+
+impl AddAssign for Vec3 {
+    fn add_assign(&mut self, rhs: Self) {
+        *self = *self + rhs;
     }
 }
 
@@ -125,4 +138,19 @@ pub fn max(x1: Vec3, x2: Vec3) -> Vec3 {
 
 pub fn clamp(x: Vec3, x0: f32, x1: f32) -> Vec3 {
     max(min(x, vec3(x1, x1, x1)), vec3(x0, x0, x0))
+}
+
+pub fn sqrt(x: Vec3) -> Vec3 {
+    x.apply(|y| y.sqrt()) 
+}
+
+pub fn rand_vec3() -> Vec3 {
+    let w = rand::randf32(314);
+    let (x, y, z) = (w, (w * 14354.0).fract(), (w * 32435.0).fract());
+    normalize(vec3(x - 0.5, y - 0.5, z - 0.5))
+}
+
+pub fn is_near_zero(x: Vec3) -> bool {
+    let s = 1e-8;
+    (x.x.abs() < s) && (x.y.abs() < s) && (x.z.abs() < s)
 }
