@@ -1,2 +1,3 @@
 # raytracing-course
-Ray Tracing in One Weekend - Course - Rust
+
+Learning Ray Tracing by following the book series: [Ray Tracing in One Weekend](https://raytracing.github.io/)
