@@ -2,7 +2,7 @@ use std::{fs::File, io::Write};
 use crate::rand;
 use crate::ray::Ray;
 use crate::hittable::{Hittable, HittableList};
-use crate::vec3::{clamp, normalize, sqrt, vec3, Vec3};
+use crate::vec3::{clamp, dot, normalize, sqrt, vec3, Vec3};
 
 pub struct Camera {
     pub aspect_ratio: f32,
@@ -87,15 +87,20 @@ impl Camera {
         }
         
         if let Some(d) = world.hit(&ray, 0.001, f32::MAX) {
-            if let Some((scatter_ray, attenuation)) = d.mat.scatter(&ray, &d) {
+            let (ray, attenuation) = d.mat.scatter(&ray, &d);
+            if let Some(scatter_ray) = ray {
                 return attenuation * Self::ray_color(scatter_ray, depth - 1, world);
+            } else {
+                return attenuation;
             }
         }
 
         let unit_dir = normalize(ray.dir);
 
         let grad = 0.5 + 0.5 * unit_dir.y;
-        grad * vec3(0.5, 0.7, 1.0) + (1.0 - grad) * vec3(0.9, 1.0, 1.0)
+        let mut sky = grad * vec3(0.5, 0.7, 1.0) + (1.0 - grad) * vec3(0.9, 1.0, 1.0);
+        sky = sky * (dot(unit_dir, vec3(1.0, 0.4, -0.5)).max(0.0));
+        sky
     }
 
     fn linear_to_gamma(color: Vec3) -> Vec3 {

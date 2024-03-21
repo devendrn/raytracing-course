@@ -154,3 +154,14 @@ pub fn is_near_zero(x: Vec3) -> bool {
     let s = 1e-8;
     (x.x.abs() < s) && (x.y.abs() < s) && (x.z.abs() < s)
 }
+
+pub fn reflect(v: Vec3, n: Vec3) -> Vec3 {
+    v -  2.0*dot(v, n)*n
+}
+
+pub fn refract(v: Vec3, n: Vec3, etai_over_etat: f32) -> Vec3 {
+    let cos_theta = dot(-v, n).min(1.0);
+    let r_out_perpendicular = etai_over_etat * (v + cos_theta*n);
+    let r_out_parallel = - n * (1.0 - dot(r_out_perpendicular, r_out_perpendicular)).abs().sqrt();
+    r_out_perpendicular + r_out_parallel
+}
