@@ -165,3 +165,12 @@ pub fn refract(v: Vec3, n: Vec3, etai_over_etat: f32) -> Vec3 {
     let r_out_parallel = - n * (1.0 - dot(r_out_perpendicular, r_out_perpendicular)).abs().sqrt();
     r_out_perpendicular + r_out_parallel
 }
+
+pub fn cross(x1: Vec3, x2: Vec3) -> Vec3 {
+    vec3(
+        x1.y * x2.z - x1.z * x2.y,
+        x1.z * x2.x - x1.x * x2.z,
+        x1.z * x2.y - x1.y * x2.x,
+    )
+}
+

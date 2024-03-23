@@ -2,50 +2,69 @@ use std::{fs::File, io::Write};
 use crate::rand;
 use crate::ray::Ray;
 use crate::hittable::{Hittable, HittableList};
-use crate::vec3::{clamp, dot, normalize, sqrt, vec3, Vec3};
+use crate::vec3::{clamp, cross, dot, length, normalize, sqrt, vec3, Vec3};
 
 pub struct Camera {
-    pub aspect_ratio: f32,
-    pub image_width: i32,
     pub samples_per_pixel: u16,
     pub max_depth: u8,
+    pub fov: f32,
+    pub aspect_ratio: f32,
+    pub image_width: i32,
+    pub look_from: Vec3,
+    pub look_at: Vec3,
+    pub v_up: Vec3,
     image_height: i32,
-    center: Vec3,
-    pixel_delta_uv: Vec3,
+    pixel_delta_u: Vec3,
+    pixel_delta_v: Vec3,
     pixel_00_loc: Vec3,
 }
 
 impl Camera {
-    pub fn new(aspect_ratio: f32, image_width: i32, samples_per_pixel: u16, max_depth: u8) -> Camera {
-        let image_height = (image_width as f32 / aspect_ratio) as i32;
-
-        let focal_len = 1.0;
-
-        let viewport_height = 2.0;
-        let viewport_width = viewport_height * (image_width as f32 / image_height as f32);
-        let center = vec3(0.0, 0.0, 0.0);
-
-        let viewport_uv = vec3(viewport_width, -viewport_height, 0.0);
-
-        let pixel_delta_uv = viewport_uv / vec3(image_width as f32, image_height as f32, 1.0);
-
-        let viewport_top_left = center - vec3(0.0, 0.0, focal_len) - 0.5 * viewport_uv;
-
-        let pixel_00_loc = viewport_top_left + 0.5 * pixel_delta_uv;
-
+    pub fn new() -> Camera {
+        let vec3_0 = vec3(0.0, 0.0, 0.0);
         Camera {
-            aspect_ratio,
-            image_width,
-            image_height,
-            center,
-            pixel_delta_uv,
-            pixel_00_loc,
-            samples_per_pixel,
-            max_depth
+            image_width: 256,
+            image_height: 256,
+            samples_per_pixel: 32,
+            max_depth: 8,
+            aspect_ratio: 1.0,
+            fov: 90.0,
+            pixel_delta_u: vec3_0,
+            pixel_delta_v: vec3_0,
+            pixel_00_loc: vec3_0,
+            look_from: vec3_0,
+            look_at: vec3_0,
+            v_up: vec3_0,
         }
     }
 
-    pub fn render(&self, world: &HittableList) {
+    fn initialize(&mut self) {
+        self.image_height = (self.image_width as f32 / self.aspect_ratio) as i32;
+
+        let focal_len = length(self.look_from - self.look_at);
+        let theta = self.fov.to_radians();
+        let h = (0.5 * theta).tan();
+
+        let viewport_height = 2.0 * h * focal_len;
+        let viewport_width = viewport_height * (self.image_width as f32 / self.image_height as f32);
+
+        let w = normalize(self.look_from - self.look_at);
+        let u = normalize(cross(self.v_up, w));
+        let v = cross(w, u);
+
+        let viewport_u = viewport_width * u;
+        let viewport_v = - viewport_height * v;
+
+        self.pixel_delta_u = viewport_u / self.image_width as f32;
+        self.pixel_delta_v = viewport_v / self.image_height as f32;
+
+        let viewport_top_left = self.look_from - (focal_len * w) - 0.5 * (viewport_u + viewport_v);
+
+        self.pixel_00_loc = viewport_top_left + 0.5 * (self.pixel_delta_u + self.pixel_delta_v);
+    }
+
+    pub fn render(&mut self, world: &HittableList) {
+        Self::initialize(self);
         let mut buf = Vec::new();
         writeln!(buf, "P3\n{} {}\n255\n", self.image_width, self.image_height).unwrap();
         for j in 0..self.image_height {
@@ -76,9 +95,12 @@ impl Camera {
 
     fn get_ray(&self, i: i32, j: i32) -> Ray {
         let pixel_offset = vec3(i as f32, j as f32, 0.0) + Self::distort_sample_uv(i, j);
-        let pixel_sample = self.pixel_00_loc + pixel_offset * self.pixel_delta_uv;
-        let ray_dir = pixel_sample - self.center;
-        Ray::new(self.center, ray_dir)
+        let pixel_sample = 
+            self.pixel_00_loc +
+            (pixel_offset.x * self.pixel_delta_u) +
+            (pixel_offset.y * self.pixel_delta_v);
+       let ray_dir = pixel_sample - self.look_from;
+        Ray::new(self.look_from, ray_dir)
     }
 
     fn ray_color(ray: Ray, depth: u8, world: &HittableList) -> Vec3 {

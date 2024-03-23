@@ -30,7 +30,16 @@ fn main() {
         world.add(obj);
     }
     
-    let cam = Camera::new(16.0 / 9.0, 360, 32, 8);
+    let mut cam = Camera::new();
+    cam.aspect_ratio = 16.0 / 9.0;
+    cam.image_width = 360;
+    cam.samples_per_pixel = 32;
+    cam.max_depth = 18;
+    cam.fov = 20.0;
+    cam.look_from = vec3(-2.0, 2.0, 1.0);
+    cam.look_at = vec3(0.0, 0.0, -1.0);
+    cam.v_up = vec3(0.0, 1.0, 0.0);
+
     cam.render(&world);
 }
 
