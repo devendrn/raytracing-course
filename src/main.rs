@@ -39,7 +39,8 @@ fn main() {
     cam.look_from = vec3(-2.0, 2.0, 1.0);
     cam.look_at = vec3(0.0, 0.0, -1.0);
     cam.v_up = vec3(0.0, 1.0, 0.0);
+    cam.defocus_angle = 10.0;
+    cam.focus_dist = 3.4;
 
     cam.render(&world);
 }
-

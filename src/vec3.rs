@@ -24,17 +24,17 @@ impl Neg for Vec3 {
     }
 }
 
+impl AddAssign for Vec3 {
+    fn add_assign(&mut self, rhs: Self) {
+        *self = *self + rhs;
+    }
+}
+
 impl Add<Vec3> for f32 {
     type Output = Vec3;
 
     fn add(self, rhs: Vec3) -> Self::Output {
         vec3(rhs.x + self, rhs.y + self, rhs.z + self)
-    }
-}
-
-impl AddAssign for Vec3 {
-    fn add_assign(&mut self, rhs: Self) {
-        *self = *self + rhs;
     }
 }
 
@@ -51,6 +51,22 @@ impl Add<Vec3> for Vec3 {
 
     fn add(self, rhs: Vec3) -> Self::Output {
         vec3(rhs.x + self.x, rhs.y + self.y, rhs.z + self.z)
+    }
+}
+
+impl Sub<Vec3> for f32 {
+    type Output = Vec3;
+
+    fn sub(self, rhs: Vec3) -> Self::Output {
+        vec3(rhs.x - self, rhs.y - self, rhs.z - self)
+    }
+}
+
+impl Sub<f32> for Vec3{
+    type Output = Vec3;
+
+    fn sub(self, rhs: f32) -> Self::Output {
+        rhs - self
     }
 }
 
@@ -146,8 +162,24 @@ pub fn sqrt(x: Vec3) -> Vec3 {
 
 pub fn rand_vec3() -> Vec3 {
     let w = rand::randf32(314);
-    let (x, y, z) = (w, (w * 14354.0).fract(), (w * 32435.0).fract());
-    normalize(vec3(x - 0.5, y - 0.5, z - 0.5))
+    let r = vec3(w, (w * 14354.0).fract(), (w * 32435.0).fract()) - 0.5;
+    let d = length(r);
+    if d < 1.0 {
+        r
+    } else {
+        r / d
+    }
+}
+
+pub fn rand_vec3_disc() -> Vec3 {
+    let w = rand::randf32(314);
+    let r = vec3(w - 0.5, (w * 14354.0).fract() - 0.5, 0.0);
+    let d = length(r);
+    if d < 1.0 {
+        r
+    } else {
+        r / d
+    }
 }
 
 pub fn is_near_zero(x: Vec3) -> bool {

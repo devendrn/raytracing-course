@@ -2,7 +2,7 @@ use std::{fs::File, io::Write};
 use crate::rand;
 use crate::ray::Ray;
 use crate::hittable::{Hittable, HittableList};
-use crate::vec3::{clamp, cross, dot, length, normalize, sqrt, vec3, Vec3};
+use crate::vec3::{clamp, cross, dot, normalize, rand_vec3_disc, sqrt, vec3, Vec3};
 
 pub struct Camera {
     pub samples_per_pixel: u16,
@@ -13,10 +13,14 @@ pub struct Camera {
     pub look_from: Vec3,
     pub look_at: Vec3,
     pub v_up: Vec3,
+    pub defocus_angle: f32,
+    pub focus_dist: f32,
     image_height: i32,
     pixel_delta_u: Vec3,
     pixel_delta_v: Vec3,
     pixel_00_loc: Vec3,
+    defocus_disk_u: Vec3,
+    defocus_disk_v: Vec3,
 }
 
 impl Camera {
@@ -29,8 +33,12 @@ impl Camera {
             max_depth: 8,
             aspect_ratio: 1.0,
             fov: 90.0,
+            defocus_angle: 0.0,
+            focus_dist: 0.0,
             pixel_delta_u: vec3_0,
             pixel_delta_v: vec3_0,
+            defocus_disk_u: vec3_0,
+            defocus_disk_v: vec3_0,
             pixel_00_loc: vec3_0,
             look_from: vec3_0,
             look_at: vec3_0,
@@ -41,11 +49,10 @@ impl Camera {
     fn initialize(&mut self) {
         self.image_height = (self.image_width as f32 / self.aspect_ratio) as i32;
 
-        let focal_len = length(self.look_from - self.look_at);
         let theta = self.fov.to_radians();
         let h = (0.5 * theta).tan();
 
-        let viewport_height = 2.0 * h * focal_len;
+        let viewport_height = 2.0 * h * self.focus_dist;
         let viewport_width = viewport_height * (self.image_width as f32 / self.image_height as f32);
 
         let w = normalize(self.look_from - self.look_at);
@@ -58,9 +65,13 @@ impl Camera {
         self.pixel_delta_u = viewport_u / self.image_width as f32;
         self.pixel_delta_v = viewport_v / self.image_height as f32;
 
-        let viewport_top_left = self.look_from - (focal_len * w) - 0.5 * (viewport_u + viewport_v);
+        let viewport_top_left = self.look_from - (self.focus_dist * w) - 0.5 * (viewport_u + viewport_v);
 
         self.pixel_00_loc = viewport_top_left + 0.5 * (self.pixel_delta_u + self.pixel_delta_v);
+
+        let defocus_radius = self.focus_dist * (self.defocus_angle * 0.5).to_radians().tan();
+        self.defocus_disk_u = u * defocus_radius;
+        self.defocus_disk_v = v * defocus_radius;
     }
 
     pub fn render(&mut self, world: &HittableList) {
@@ -99,8 +110,14 @@ impl Camera {
             self.pixel_00_loc +
             (pixel_offset.x * self.pixel_delta_u) +
             (pixel_offset.y * self.pixel_delta_v);
-       let ray_dir = pixel_sample - self.look_from;
-        Ray::new(self.look_from, ray_dir)
+
+        let ray_org = if self.defocus_angle <= 0.0 {
+            self.look_from
+        } else {
+            Self::defocus_disk_sample(self)
+        };
+        let ray_dir = pixel_sample - ray_org;
+        Ray::new(ray_org, ray_dir)
     }
 
     fn ray_color(ray: Ray, depth: u8, world: &HittableList) -> Vec3 {
@@ -127,5 +144,10 @@ impl Camera {
 
     fn linear_to_gamma(color: Vec3) -> Vec3 {
         sqrt(color)
+    }
+
+    fn defocus_disk_sample(&self) -> Vec3 {
+        let p = rand_vec3_disc();
+        self.look_from + (p.x * self.defocus_disk_u) + (p.y * self.defocus_disk_v)
     }
 }
